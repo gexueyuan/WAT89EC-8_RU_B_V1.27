@@ -1829,6 +1829,12 @@ void writerecord(void)
 	unsigned int page,addr,i;
 
 	serialnumber++;//next
+	if(serialnumber>RECORD_MAX)
+		{
+		  serialnumber = 1;
+		  Record_Over_Flag = Code_OVER;
+		  EEPROMWriteWord(Code_OVER,Record_over_30000);
+		}
 	wordval.Val = (serialnumber);  //hex_bcd2(serialnumber);	record serial number ,type is unsigned int
 	Flashbuff[0] = 0x00;
 	Flashbuff[1] = wordval.v[1];
@@ -1867,13 +1873,7 @@ else
 
     for(i=0;i<=255;i++)
 	recordbuff[i]=(char)Flashbuff[i];
- 
-   if(serialnumber>RECORD_MAX)
-		{
-		  serialnumber = 1;
-		  Record_Over_Flag = Code_OVER;
-		  EEPROMWriteWord(Code_OVER,Record_over_30000);
-		}
+
 
 	page = (serialnumber-1)/2;	
 	addr = ((serialnumber-1)%2)*256;//in fact,only write 240bytes 
@@ -5197,7 +5197,7 @@ if((tick-prevTick)>200) {
 #ifdef TradeMark_Version
 XCHAR SoftwareID[] = {'V',':',' ','1','0','1','1','2','0','5','1','0',0};
 #else
-XCHAR SoftwareID[] = {'V',':',' ','1','2','7','1','2','0','5','1','0',0};
+XCHAR SoftwareID[] = {'V',':',' ','1','2','7','1','3','0','7','0','5',0};
 #endif
 // Shows intro screen and waits for touch
 void StartScreen(void){
