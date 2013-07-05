@@ -191,6 +191,7 @@ struct tagRecord_Flag
 #define EESERIAL_NUMBER 0x0100   //
 #define Record_over_30000  0x0102
 #define Code_OVER  0xaaaa
+#define RECORD_MAX 16383
 
 #define	useI2CRTCC	// for the I2C RTCC 
 

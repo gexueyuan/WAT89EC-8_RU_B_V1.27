@@ -1828,7 +1828,7 @@ void writerecord(void)
 	unsigned char recordbuff[256];
 	unsigned int page,addr,i;
 
-	serialnumber = EEPROMReadWord(EESERIAL_NUMBER);
+	serialnumber++;//next
 	wordval.Val = (serialnumber);  //hex_bcd2(serialnumber);	record serial number ,type is unsigned int
 	Flashbuff[0] = 0x00;
 	Flashbuff[1] = wordval.v[1];
@@ -1867,7 +1867,14 @@ else
 
     for(i=0;i<=255;i++)
 	recordbuff[i]=(char)Flashbuff[i];
-	if(serialnumber>0x4000) cs=1; //cs flash2
+ 
+   if(serialnumber>RECORD_MAX)
+		{
+		  serialnumber = 1;
+		  Record_Over_Flag = Code_OVER;
+		  EEPROMWriteWord(Code_OVER,Record_over_30000);
+		}
+
 	page = (serialnumber-1)/2;	
 	addr = ((serialnumber-1)%2)*256;//in fact,only write 240bytes 
 //	memset(&Flashbuff[0],0x01,RecordSizeMax);
@@ -1877,18 +1884,10 @@ else
 	write_bufferend(cs);
 	solid_data(0x83,page,cs);//0 is flash1,0x83 is buff1,yy is page no.
 	Nop();
-	serialnumberRecord = serialnumber;
-	serialnumber++;
+	serialnumberRecord = serialnumber;//now
 	FLASH_RD(page,addr,RecordSizeMax,&Flashbuff[0],cs);
 	Nop();
 	Nop();
-	//if(serialnumber > 0x8000) serialnumber = 0;
-	if(serialnumber > 0x7530)//if >30000  record to be 1
-		{
-		  serialnumber = 1;
-		  EEPROMWriteWord(Code_OVER,Record_over_30000);
-
-		}
 	EEPROMWriteWord(serialnumber,EESERIAL_NUMBER);
 }
 
@@ -2082,7 +2081,6 @@ TRISAbits.TRISA6=0;
 PORTAbits.RA6 = 0;
 
 delay(200);
-//serialnumber = EEPROMReadWord(EESERIAL_NUMBER);
 PORTAbits.RA6 = 1;
 
     // If S3 button on Explorer 16 board is pressed calibrate touch screen
@@ -2111,12 +2109,21 @@ if(0x33!=EEPROMReadByte(updateVision))
 }
     // Load touch screen calibration parameters from EEPROM
     TouchLoadCalibration();
-    serialnumber = EEPROMReadWord(EESERIAL_NUMBER);//该写的记录条目
-	Record_Over_Flag = EEPROMReadWord(Record_over_30000);
-	Marktimes=EEPROMReadWord(TestTimesDataAddress);			
-    serialnumberRecord = serialnumber - 1;// 保持记录一致，最后一条记录的序号，显示用
-    if((Record_Over_Flag == 0xaaaa)&&(serialnumber == 1))
-		serialnumberRecord = 1;
+	
+    serialnumber = EEPROMReadWord(EESERIAL_NUMBER);//存储的记录条目
+
+	if(serialnumber > RECORD_MAX)
+		{
+			serialnumber = RECORD_MAX;
+			EEPROMWriteWord(RECORD_MAX,EESERIAL_NUMBER);
+		}
+	
+	Record_Over_Flag = EEPROMReadWord(Record_over_30000);//超出界限的flag
+	
+	Marktimes=EEPROMReadWord(TestTimesDataAddress);	
+	
+    serialnumberRecord = serialnumber;//改为相等 
+ 
     memset(&Flashbuff[0],0,256);
     POWER_CONTROL = 1;	//for the Power On, add by Spring.chen 
 
@@ -2555,7 +2562,10 @@ void ProcessIO(void)
 			
         			ToSendDataBuffer[1] = 0x01;
         			//RD_MAX_RECORD 2bytes
-					wordval.Val = serialnumber-1; 
+        			if(Record_Over_Flag != Code_OVER)
+					wordval.Val = serialnumber; 
+					else
+					wordval.Val = RECORD_MAX;	
 					ToSendDataBuffer[2] = wordval.v[1];
 					ToSendDataBuffer[3] = wordval.v[0];
 					//DEVICE ID    3btyes
@@ -2624,24 +2634,20 @@ void ProcessIO(void)
         		wordval.v[1] = ReceivedDataBuffer[2];
 			wordval.v[0] = ReceivedDataBuffer[3];
 			x = wordval.Val;
-			if(Record_Over_Flag != Code_OVER)
+			if((Record_Over_Flag != Code_OVER)&&(x <=serialnumber))
 				{
-			if(x < serialnumber) 
-			{
-			page = (x-1)/2;	
-			addr = ((x-1)%2)*256;//in fact,only write 240bytes 
-			if(serialnumber>0x4000) cs=1; //cs flash2
-			FLASH_RD(page,addr,240,buff,cs);
-			memcpy(&ToSendDataBuffer[2],&buff[0],62);
-			}
+
+					page = (x-1)/2;	
+					addr = ((x-1)%2)*256;//in fact,only write 240bytes 
+					FLASH_RD(page,addr,240,buff,cs);
+					memcpy(&ToSendDataBuffer[2],&buff[0],62);
 				}
 			else
 			{
-            page = (x-1)/2;	
-			addr = ((x-1)%2)*256;//in fact,only write 240bytes 
-			if(serialnumber>0x4000) cs=1; //cs flash2
-			FLASH_RD(page,addr,240,buff,cs);
-			memcpy(&ToSendDataBuffer[2],&buff[0],62);  
+            	page = (x-1)/2;	
+				addr = ((x-1)%2)*256;//in fact,only write 240bytes 
+				FLASH_RD(page,addr,240,buff,cs);
+				memcpy(&ToSendDataBuffer[2],&buff[0],62);  
 
 			}
             		break;
@@ -2680,8 +2686,8 @@ void ProcessIO(void)
         	ToSendDataBuffer[1] = 0x04;
         	EEPROMWriteWord(1,EESERIAL_NUMBER);// 写一作为记录的条数开始
         	EEPROMWriteWord(0,Record_over_30000);//
-		serialnumber = 1;//EEPROMReadWord(EESERIAL_NUMBER);
-		serialnumberRecord = serialnumber - 1;// 保持记录一致
+		serialnumber = 1;//
+		serialnumberRecord = serialnumber;// 保持记录一致
 		if(!HIDTxHandleBusy(USBInHandle))
                 {
                     USBInHandle = HIDTxPacket(HID_EP,(BYTE*)&ToSendDataBuffer[0],64);
@@ -3670,7 +3676,7 @@ static  BYTE Bluetoothflag = 0;
         case DISPLAY_MAIN:
 	#ifdef TEST
 		
-          if(serialnumber>=16384)
+          if(serialnumber>=RECORD_MAX)
 			screenState = CREATE_RECORD;
 		  else
 		  	{
@@ -4060,12 +4066,12 @@ goto_test:		if((!directionZYQ))
             		serialnumberRecord +=10;//;= serialnumber
             		screenState = CREATE_RECORD;//
             	}
-            	else if(serialnumberRecord<serialnumber-1)
+            	else if(serialnumberRecord<serialnumber)
             	{
-            		serialnumberRecord = serialnumber-1;
+            		serialnumberRecord = serialnumber;
             		screenState = CREATE_RECORD; 	// goto list box screen
             	}	
-		        else if(serialnumberRecord==serialnumber-1)	
+		        else if(serialnumberRecord==serialnumber)	
 			    {
 			            S4_count = 0;
                         return 0;
@@ -4073,13 +4079,13 @@ goto_test:		if((!directionZYQ))
 	          }
 			  else
 			  	{
-					if(serialnumberRecord<=29990)
+					if(serialnumberRecord<=(RECORD_MAX-10))
 						{
                          serialnumberRecord +=10;//;= serialnumber
             		     screenState = CREATE_RECORD;//  
 					}
-					else if((serialnumberRecord>29990)&&(serialnumberRecord<=30000)){
-						 serialnumberRecord -=29990;//;= serialnumber
+					else if((serialnumberRecord>(RECORD_MAX-10))&&(serialnumberRecord<=RECORD_MAX)){
+						 serialnumberRecord -=(RECORD_MAX-10);//;= serialnumber
             		     screenState = CREATE_RECORD;//
 					}
 
@@ -4110,7 +4116,7 @@ goto_test:		if((!directionZYQ))
             		screenState = CREATE_RECORD; 	
             		}
 				else{
-					serialnumberRecord += 29990;
+					serialnumberRecord += (RECORD_MAX-10);
             		screenState = CREATE_RECORD;
 				}
             	}
@@ -4122,7 +4128,7 @@ goto_test:		if((!directionZYQ))
                         return 0;
 			   	}
 			   else{
-					serialnumberRecord += 29990;
+					serialnumberRecord += (RECORD_MAX-10);
             		screenState = CREATE_RECORD;
 			   }
 			}
@@ -6304,10 +6310,8 @@ for(i=64;i>0;i--)
 	Bar(0, (GetMaxY()-i), GetMaxX(), (GetMaxY()-i+1));
 }
 
- serialnumber = EEPROMReadWord(EESERIAL_NUMBER);
- serialnumberRecord = serialnumber - 1;// 保持记录一致
-if((Record_Over_Flag == 0xaaaa)&&(serialnumber == 1))
-		serialnumberRecord = 1;
+  serialnumberRecord = serialnumber;// 
+ 
  
  serialnumberStr[0] = (serialnumberRecord /10000) +'0';// 万位
 serialnumberStr[1] = (serialnumberRecord /1000 %10) +'0';// 千位
@@ -8843,24 +8847,26 @@ static char status = 0;			// status to check if calling, holding or not
             if(objMsg == BTN_MSG_RELEASED){
 			if(Record_Over_Flag != Code_OVER)
 				{
-                if(serialnumberRecord<serialnumber-1)
+                if(serialnumberRecord<serialnumber)
             	{
             		serialnumberRecord ++;//;= serialnumber
             		screenState = CREATE_RECORD;//
             	}
+				/*
             	else
             	{
-            		serialnumberRecord = serialnumber-1;
+            		serialnumberRecord = serialnumber;
             		screenState = CREATE_RECORD; 	// goto list box screen
             	}
+            	*/
 				}
 			else{
-				if(serialnumberRecord<30000)
+				if(serialnumberRecord<RECORD_MAX)
             	{
             		serialnumberRecord ++;//;= serialnumber
             		screenState = CREATE_RECORD;//
             	}
-            	else if(serialnumberRecord == 30000)
+            	else 
             	{
             		serialnumberRecord = 1;
             		screenState = CREATE_RECORD; 	// goto list box screen
@@ -8872,10 +8878,10 @@ static char status = 0;			// status to check if calling, holding or not
             if(objMsg == BTN_MSG_RELEASED){
                 if(serialnumberRecord>1)
             	{
-            		serialnumberRecord --;//;= serialnumber
+            		serialnumberRecord--;//;= serialnumber
             		screenState = CREATE_RECORD;//
             	}
-            	else
+            	else if(serialnumberRecord == 1)
             	{
             	if(Record_Over_Flag != Code_OVER)
             		{
@@ -8884,7 +8890,7 @@ static char status = 0;			// status to check if calling, holding or not
             		}
 				else
 					{
-            		serialnumberRecord = 30000;
+            		serialnumberRecord = RECORD_MAX;
             		screenState = CREATE_RECORD; 	//				}
             	    }
             	}
@@ -8939,10 +8945,7 @@ void CreateJumptox(void)
 	}
 	dateTimeStr[12] = (XCHAR)'\n';
 	dateTimeStr[25] = (XCHAR)'\0';
-    serialnumber = EEPROMReadWord(EESERIAL_NUMBER);
-    serialnumberRecord = serialnumber - 1;// 保持记录一致
-if((Record_Over_Flag == 0xaaaa)&&(serialnumber == 1))
-		serialnumberRecord = 1;    
+     serialnumberRecord = serialnumber;// - 1;// 保持记录一致    
  
     serialnumberStr[0] = (serialnumberRecord /10000) +'0';// 万位
     serialnumberStr[1] = (serialnumberRecord /1000 %10) +'0';// 千位
@@ -9143,7 +9146,7 @@ WORD MsgJumptox(WORD objMsg, OBJ_HEADER* pObj, GOL_MSG* pMsg){
 
         case ID_BUTTON2:
             if(objMsg == BTN_MSG_RELEASED){
-                    serialnumberRecord = serialnumber-1;
+                    serialnumberRecord = serialnumber;//-1;
             		screenState = CREATE_RECORD; 	// goto list box screen
             }
             return 1; // process by default
@@ -9218,8 +9221,8 @@ WORD MsgJumptox(WORD objMsg, OBJ_HEADER* pObj, GOL_MSG* pMsg){
             if(objMsg == BTN_MSG_RELEASED){
 				
                     serialnumberRecord = 10000*(Jumptox[0]-'0')+1000*(Jumptox[2]-'0')+100*(Jumptox[3]-'0')+10*(Jumptox[5]-'0')+Jumptox[6]-'0';
-                    if(serialnumberRecord>=serialnumber-1)
-						  serialnumberRecord=serialnumber-1;
+                    if(serialnumberRecord>=serialnumber)
+						  serialnumberRecord=serialnumber;//-1;
 					if(serialnumberRecord==0)
 						 serialnumberRecord=1;						
 					screenState = CREATE_RECORD; 	// goto list box screen
@@ -15461,16 +15464,17 @@ WORD MsgYesNo(WORD objMsg, OBJ_HEADER* pObj){
             	if(YesNoNumber == 1)
             		{
                     DefaultSETTING();
-		 screenState = CREATE_Master;			
+		 			screenState = CREATE_Master;			
             		}
             	else if(YesNoNumber == 2)
             	{
-            		EEPROMWriteWord(1,EESERIAL_NUMBER);// 写一作为记录的条数开始
+
+			        serialnumber = 0;// 
+			        serialnumberRecord = serialnumber;// - 1;// 保持记录一致
+			        EEPROMWriteWord(serialnumber,EESERIAL_NUMBER);// 写一作为记录的条数开始
             		EEPROMWriteWord(0,Record_over_30000);
-			        serialnumber = 1;//EEPROMReadWord(EESERIAL_NUMBER);
-			        serialnumberRecord = serialnumber - 1;// 保持记录一致
 			     //   EEPROMWriteWord(0, TestTimesDataAddress);
-				screenState = CREATE_AGENT;	
+					screenState = CREATE_AGENT;	
             	}
 				/*
 				if(Settingposition==0xaa)
