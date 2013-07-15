@@ -5197,7 +5197,7 @@ if((tick-prevTick)>200) {
 #ifdef TradeMark_Version
 XCHAR SoftwareID[] = {'V',':',' ','1','0','1','1','2','0','5','1','0',0};
 #else
-XCHAR SoftwareID[] = {'V',':',' ','1','2','7','1','3','0','7','0','5',0};
+XCHAR SoftwareID[] = {'V',':',' ','1','2','7','1','3','0','7','0','9',0};
 #endif
 // Shows intro screen and waits for touch
 void StartScreen(void){
@@ -9139,15 +9139,19 @@ WORD MsgJumptox(WORD objMsg, OBJ_HEADER* pObj, GOL_MSG* pMsg){
         case ID_BUTTON1:
             if(objMsg == BTN_MSG_RELEASED){
                     serialnumberRecord = 1;
-            		screenState = CREATE_RECORD; 	// goto list box screen
+            		screenState = CREATE_RECORD; 	// 1st record
             }
             return 1; // process by default
             
 
         case ID_BUTTON2:
             if(objMsg == BTN_MSG_RELEASED){
-                    serialnumberRecord = serialnumber;//-1;
-            		screenState = CREATE_RECORD; 	// goto list box screen
+
+				if( Code_OVER ==  Record_Over_Flag)
+					serialnumberRecord = RECORD_MAX;
+				else
+                    serialnumberRecord = serialnumber;
+            		screenState = CREATE_RECORD; 	// last record
             }
             return 1; // process by default
             
@@ -9161,7 +9165,7 @@ WORD MsgJumptox(WORD objMsg, OBJ_HEADER* pObj, GOL_MSG* pMsg){
        case ID_BUTTON1_P:  						// increment hour value
 		    if(objMsg == BTN_MSG_PRESSED){
 				  Jumptox[0]++;
-				if(Jumptox[0]>0x32)
+				if(Jumptox[0]>0x31)
 					Jumptox[0]=0x30;
 				ebID = ID_EB_RECORD1;
 		
@@ -9172,7 +9176,7 @@ WORD MsgJumptox(WORD objMsg, OBJ_HEADER* pObj, GOL_MSG* pMsg){
 			if(objMsg == BTN_MSG_PRESSED){
 				Jumptox[0]--;
 				if(Jumptox[0]<=0x2F)
-					Jumptox[0]=0x32;
+					Jumptox[0]=0x31;
 				ebID = ID_EB_RECORD1;
 	
 			}
@@ -9221,8 +9225,16 @@ WORD MsgJumptox(WORD objMsg, OBJ_HEADER* pObj, GOL_MSG* pMsg){
             if(objMsg == BTN_MSG_RELEASED){
 				
                     serialnumberRecord = 10000*(Jumptox[0]-'0')+1000*(Jumptox[2]-'0')+100*(Jumptox[3]-'0')+10*(Jumptox[5]-'0')+Jumptox[6]-'0';
-                    if(serialnumberRecord>=serialnumber)
-						  serialnumberRecord=serialnumber;//-1;
+					if( Code_OVER ==  Record_Over_Flag)
+						{
+					        if(serialnumberRecord>=RECORD_MAX)
+						  		serialnumberRecord=RECORD_MAX;//-1;
+						}
+					else
+						{
+							if(serialnumberRecord>=serialnumber)
+						  		serialnumberRecord=serialnumber;//-1;
+					    }
 					if(serialnumberRecord==0)
 						 serialnumberRecord=1;						
 					screenState = CREATE_RECORD; 	// goto list box screen

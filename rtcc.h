@@ -145,4 +145,3 @@ extern void SetRtccAddress(WORD address);
 extern void I2cRtccWriteByte(BYTE Data, WORD address);
 extern BYTE I2CRtccReadByte(WORD address);
 extern void I2cRtccReadArray(WORD address, BYTE* pData, WORD nCount);
-extern void SetRtccDefault(void);

@@ -519,5 +519,4 @@ const unsigned char Table_kN[129] =
  0xae,0xae,0xae,0xae,0xae,0xae,0xaf,0xaf,0xaf      /*120->128*/
 };   
 
-unsigned char Table_hz[]=				
-{0};
+unsigned char Table_hz[]={0};

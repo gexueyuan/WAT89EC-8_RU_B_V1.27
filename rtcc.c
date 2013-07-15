@@ -1564,6 +1564,8 @@ void I2cRtccWriteByte(BYTE data, WORD address)
 }
 
 BYTE p[7]={0x30,0x59,0x15,0x20,0x02,0x06,0x00}; //2000 年6 月20 日星期3 15 点 59 分30 秒<倒序>
+
+#if 0
 void SetRtccDefault(void)
 {
 	unsigned int i;
@@ -1583,7 +1585,7 @@ void SetRtccDefault(void)
 
 
 }
-
+#endif
 #if	0
 void EEPROMWriteWord(WORD data, WORD address)
 {
